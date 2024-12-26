@@ -1,0 +1,589 @@
+Class1: Ansible (Basic Intro & Adhoc Commands)
+
+Ansible - It will come under Configuration Management tool (CM)
+
+What is Configuration Management?
+	We have multiple environment in real-time, it is really hard to maintain everything manually; by using configuration tool we can automate the complete process used in the specific Application.
+	In Simple Words, If I have Multiple server (20+), client is asking me to Install Apache, Java, and to create a group, user and directories, (Scenario without Configuration tool: I need to do it one by one server, and this consume my time and effort; but by using configuration tool we can automate it just by pushing it from one server to another.
+
+What are different types of CM tools?
+	Ansible
+	Chef
+	Puppet
+	Saltstalk, etc.,
+
+Why Ansible?
+	For Chef / Puppet I need to know additional scripting knowledge (Groovy / Ruby), But for Ansible Basic Linux commands is more than enough.Ansible automates and simplifies repetitive, complex, and tedious operations. Everybody likes it because it brings huge time savings when we install packages or configure large numbers of servers.Its architecture is simple and effective. It works by connecting to your nodes and pushing small programs to them.
+	Ansible works over SSH and doesn't require any daemons (A daemon is a service process that runs in the background and supervises the system or provides functionality to other processes.), special servers, or libraries to work. A text editor and command line tool are usually enough to get your work done.
+
+What is Master-Slave Configuration?
+	Master is going to command and Slave is going to work
+
+What are the 2 types of mechanism?
+	Push - Pushing the code from Master machine to Slave machine (Ansible)
+	Pull   - Pulling the code by login from Slave machine (Chef / Puppet)
+Saltstalk supports Both Push and Pull mechanism.
+
+docs.ansible.com - Ansible Official Page - It is a RedHat product.
+
+In Ansible We will call Master as (Control Node), and Slave as (Managed Node).
+
+Ansible is an agentless tools, which means we need to install ansible only on the master machine, and there is no need for installing ansible on the slaves machine.
+
+For all DevOps tools, it is important to know the pre-requisites / requirements before installing the tools.
+Ansible Pre-requisites:
+1. Python is required on control machine (If it is Python 2, it should be Python 2.7; If it is going to be Python 3, then the version should be Python 3.5 or Higher) [*** Your Control Node should never be a windows one, it can be anything from Linux]
+2. Under Managed Node, Python is compulsory (If it is Python 2, it should be Python 2.6 or later; If it is going to be Python 3, then the version should be Python 3.5 or later) [***Managed Node can be windows machine]
+	Ansible was writted by Python Language, hence there is a need for Python on all the machines.
+
+What is pip?
+Python package Manager
+
+Application we are going here:
+1. Putty - SSH terminal
+2. Puttygen - Convertor for .pem to .ppk
+3. Pagent - Avoid putting .ppk file everytime while login into the machine (we can add multiple .ppk files into it)
+4. Visual Studio Code - text editor
+
+What are the 2 important files in Ansible?
+	Whenever we are installing Ansible in any OS using installation steps, by default we will get both this files; (***except on pip)
+1. Inventory file -------- /etc/ansible/hosts ---------- we will configure all our slaves machine Private IP under this file
+2. Configuration file --- /etc/ansible/ansible.cfg ---- this holds all the Ansible configuration details
+
+We are going to cover 4 topics here:
+1. ssh Connection --> Ansible master to linux slave connection
+1. Adhoc commands - One task at a time
+2. Playbooks - Mutiple task (.yaml script)
+3. Soap Connection --> Windows Slave Configure
+4. Vault - Security layer
+
+
+Ansible Installation
+==============
+
+Bootstrap in Ansible-Master
+====================
+
+#! /bin/bash
+yum update
+yum install python -y
+yum install python-pip -y
+pip install ansible
+
+
+
+vi slaves 
+
+wget https://raw.githubusercontent.com/vijay3639/Ansible-Configuration-Files/main/ansible.cfg
+
+vi ansible.cfg
+
+ansible all -i slave -m ping   -----> To Check Master & Slave Connection 
+
+ansible all -i slave -a "uname -a"  ----> To check OS version
+
+ansible all -i slave -a "uptime" ----> To Check Running Time of an Instance
+
+State:
+	1. present/latest = install
+	2. absent = uninstall
+	3. started = start
+	4. stopped = stop
+	5. restarted = restart
+
+To install Apache in Slaves
+===========================
+
+ansible all -i slave -m yum -a "name=httpd state=present" -b   
+
+To Start Apache in Slaves
+=========================
+
+ansible all -i slave -m service -a "name=httpd state=started" -b
+
+
+To Copy Files to Slaves
+================
+
+ansible all -i slave -m copy -a "src=/home/ec2-user/index.html dest=/var/www/html/index.html" -b
+
+
+To install Git in a Particular Slave
+========================
+We can do it by Grouping
+
+[dev]
+172.31.34.169
+
+[test]
+172.31.39.149
+
+
+Install git on dev Server
+-------------------------------
+
+ansible dev -i slave -m yum -a "name=git state=present" -b 
+
+
+Install java on test Server
+---------------------------------
+
+ansible test -i slave -m yum -a "name=java state=present" -b
+
+
+==============================================
+
+
+Ansible Playbook
+============
+
+yum install httpd
+
+Service httpd start
+
+copy   var/www/html
+
+vi apache.yml
+
+- hosts: all
+  remote_user: ec2-user
+  become: yes
+  tasks:
+  - name: Install the latest version of Apache
+    yum:
+      name: httpd
+      state: latest
+  - name: Start service httpd, if not started
+    service:
+      name: httpd
+      state: started
+  - name: Copy file with owner and permissions
+    copy:
+      src: /home/ec2-user/index.html
+      dest: /var/www/html/index.html
+      mode: '777'
+
+esc :wq!
+
+vi index.html
+
+This is Apache Machine
+
+
+
+ansible-playbook -i host apache.yml --syntax-check
+
+ansible-playbook -i host apache.yml --list-host
+
+ansible-playbook -i host apache.yml
+----------------------------------------------------------------------------------------------------------
+
+
+
+Soap Protocol  ----> Ansible to windows Connection
+==========
+
+Ansible-Master
+==============
+
+sudo yum install python-pip -y
+sudo yum install ansible
+sudo amazon-linux-extras install ansible2
+pip install pywinrm
+cd /etc/ansible
+cp hosts /home/ec2-user/
+cp ansible.cfg /home/ec2-user/
+cd /home/ec2-user/
+ls
+vi ansible.cfg
+vi hosts
+
+[windows]
+172.31.8.27
+
+[windows:vars]
+ansible_user=Administrator
+ansible_password=Admin123 
+ansible_port=5986
+ansible_connection=winrm
+ansible_winrm_server_cert_validation=ignore
+
+esc:wq!
+
+
+Go to Windows Server
+
+go to search----> lusrmgr.msc
+ 
+click local---> right click Administrator---> change password--Admin123
+
+Re-Launch windows server
+
+Username --> Administrator
+password --> Admin123
+
+Now open Powershell ISE
+
+https://raw.githubusercontent.com/vijay3639/Ansible-Configuration-Files/main/ConfigureRemotingForAnsible.ps1
+
+From Ansible Master
+====================
+
+ansible windows -i hosts -m win_ping
+
+vi folder.yml
+
+
+- hosts: windows
+  gather_facts: true
+  tasks:
+  - name: Create a folder in target group node
+    win_file:
+      path: C:\ansible
+      state: directory
+
+esc :wq!
+
+ansible-playbook -i hosts folder.yml
+
+
+------------------------------------------------------------------
+
+
+
+vi iis.yml
+
+
+---
+# This playbook installs and enables IIS on Windows hosts
+
+- name: Install IIS
+  hosts: windows
+  gather_facts: false
+  tasks:
+    - name: Installing IIS on Windows Server
+      win_feature:
+        name: "Web-Server"
+        state: present
+        restart: yes
+        include_sub_features: yes
+        include_management_tools: yes
+    - name: Copy files to Windows server
+      win_copy:
+        src: ./index.html
+        dest: C:\\inetpub\\wwwroot\\index.html
+
+esc :wq!
+
+ansible-playbook -i hosts iis.yml
+
+-------------------------------------------------------------------
+
+vi code.yml
+
+- hosts: windows
+  tasks:
+  - name: Copy files to Windows server
+    win_copy:
+      src: ./index.html
+      dest: C:\\inetpub\\wwwroot\\index.html
+
+ansible-playbook -i slaves code.yml
+
+--------------------------------------------------------------------
+
+
+
+
+==================================================================
+
+VAULT:
+====== 
+
+- IN PROJECTS, SOME YAML FILES WILL HAVE CONFIDENTIAL INFORMATION OR HIGHLY SENSITIVE INFORMATION. 
+- IT CANNOT BE KEPT OPEN. 
+- IN SUCH CASES, WE CAN ENCRYPT THE FILES FOR SECURITY.
+- IN ANSIBLE VAULT, AESA ALGORITHM IS USED. 
+- AESA STANDS FOR ADVANCED ENCRYPTION STANDARD ALGORITHM. 
+- WE USE 6 COMMANDS UNDER VAULT TO ACHIEVE THIS.
+- SIX COMMANDS: CREATE, ENCRYPT, DECRYPT, VIEW, EDIT, REKEY [--ask-vault-pass]
+
+PRACTICAL:
+=========
+
+- CONNECT MASTER MACHINE THROUGH PUTTY.
+- WE HAVE TWO WAYS TO ENCRYPT YAML FILES. 
+- WE CAN USE "CREATE" COMMAND TO DIRECTLY ENCRYPT A YAML FILE WHILE CREATING IT.
+- WE CAN ALSO ENCRYPT AN EXISTING YAML FILE BY USING "ENCRYPT" COMMAND.
+
+CREATE COMMAND:
+===============
+
+# ansible-vault create first.yml
+
+- hosts: all
+  remote_user: ec2-user
+  become: yes
+  tasks:
+   - name: Install git
+     yum:
+       name: git
+       state: present
+       update_cache: yes
+
+# cat first.yml
+# ANSIBLE VAULT - AES --> ADVANCE ENCRYPTED STANDARD
+
+ENCRYPT COMMAND:
+================
+
+THIS METHOD IS USED TO ENCRYPT THE EXISTING YAML FILE.
+
+# vi second.yml
+# cat second.yml
+
+- hosts: all
+  remote_user: ec2-user
+  become: yes
+  tasks:
+   - name: Install git
+     yum:
+       name: git
+       state: present
+       update_cache: yes
+
+- Save it (escape wq!)
+
+TO ENCRYPT THE FILE, USE BELOW COMMAND:
+===================================
+
+# ansible-vault encrypt second.yml
+
+TO DECRYPT THE FILE, USE BELOW COMMAND:
+===================================
+
+# ansible-vault decrypt second.yml
+
+VIEW COMMAND:
+=============
+
+- WE CAN VIEW THE ENCRYPTED FILE USING THIS COMMAND WITHOUT DOING DECRYPTION.
+
+# cat second.yml
+# ansible-vault view first.yml
+
+EDIT COMMAND:
+=============
+
+- WE CAN EDIT THE ENCRYPTED FILE USING THIS COMMAND. 
+
+# ansible-vault edit first.yml
+
+REKEY COMMAND:
+==============
+
+- THIS COMMAND USED TO CHANGE THE PASSWORD OF THE VAULT. AS PER IT COMPANY RULES, WE HAVE TO CHANGE THE PASSWORD OF THE VAULT PASSWORD PERIODICALLY. 
+
+# ansible-vault rekey first.yml
+
+Give vault password:
+New Password :
+Confirm Password:
+
+TO RUN A ENCRYPTED PLAYBOOK
+=========================
+
+# ansible-playbook -i hosts first.yml
+
+# ansible-playbook -i hosts first.yml --ask-vault-pass
+
+----------------------------------------------------------------------------------------------
+
+Loop Condition 
+==========
+
+- hosts: all
+  remote_user: ec2-user
+  become: yes
+  tasks:
+    - name: Installing Multiple Packages
+      yum:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - mysql
+        - php
+        - unzip
+---------------------------------------------------------------------------------------------------------
+
+Tag Condtion
+=========
+
+- hosts: all
+  become: yes
+  remote_user: ec2-user
+  tasks:
+    - name: going to update yum package
+      yum:
+        name: "*"
+        state: latest
+      tags:
+        - update
+
+    - name: install java 
+      yum:
+        name: java
+        state: present
+      tags:
+        - java
+    
+    - name: download tomcat
+      get_url:
+        url: https://dlcdn.apache.org/tomcat/tomcat-8/v8.5.88/bin/apache-tomcat-8.5.88.tar.gz
+        dest: /opt
+        mode: '0777'
+      tags:
+        - tomcat
+
+-------------------------------------------------------------------------------------------------------------------------
+
+Ignore error Condition
+================
+
+- hosts: all
+  become: yes
+  remote_user: ec2-user
+  tasks:
+    - name: going to update yum package
+      yum:
+        name: greens
+        state: present
+      ignore_errors: yes
+
+    - name: install java 
+      yum:
+        name: java
+        state: present
+      ignore_errors: yes
+
+----------------------------------------------------------------------------------------------------------------------------
+
+Jenkins installation
+==============
+
+- name: Install Jenkins on Amazon Linux
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Ensure Java is installed
+      become: yes
+      yum:
+        name: java
+        state: present
+
+    - name: Add Jenkins Repository
+      become: yes
+      yum_repository:
+        name: jenkins
+        description: Jenkins
+        baseurl: http://pkg.jenkins.io/redhat
+        gpgcheck: yes
+        gpgkey: https://pkg.jenkins.io/redhat/jenkins.io-2023.key
+        state: present
+
+    - name: Install Jenkins
+      become: yes
+      yum:
+        name: jenkins
+        state: present
+
+    - name: Start Jenkins Service
+       become: yes
+       systemd:
+        name: jenkins
+        state: started
+        enabled: yes
+
+
+----------------------------------------------------------------------------------------------------------------------------
+
+Tomcat Deployment  with port change
+===========================
+
+- hosts: all
+  remote_user: ec2-user
+  become: yes
+  tasks: 
+
+  - name: Upgrade all packages
+    ansible.builtin.yum:
+     name: '*'
+     state: latest
+
+  - name: install java as tomcat dependancy
+    ansible.builtin.yum:
+     name: java
+     state: latest
+
+  - name: Download Tomcat from website
+    ansible.builtin.get_url:
+     url: https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.84/bin/apache-tomcat-9.0.84.tar.gz
+     dest: /opt
+     mode: '777'
+
+  - name: Unarchive a file that is already on the remote machine
+    ansible.builtin.unarchive:
+     src: /opt/apache-tomcat-9.0.84.tar.gz
+     dest: /opt
+     remote_src: yes
+
+  - name: To start Tomcat
+    ansible.builtin.shell: nohup /opt/apache-tomcat-9.0.84/bin/startup.sh & 
+
+  - name: Copy jinja file to remote server
+    template:
+     src: ./server.xml.j2
+     dest: /opt/apache-tomcat-9.0.84/conf/server.xml
+     mode: '777'  
+
+  - name: To Stop Tomcat
+    ansible.builtin.shell: nohup /opt/apache-tomcat-9.0.84/bin/shutdown.sh &
+
+  - name: To Start Tomcat
+    ansible.builtin.shell: nohup /opt/apache-tomcat-9.0.84/bin/startup.sh &   
+
+  - name: Copying Source code for deployment
+    copy:
+     src: ./sample.war
+     dest: /opt/apache-tomcat-9.0.84/webapps/sampple.war
+     mode: '777'     
+    
+------------------------------------------------------------------------------------------------
+
+
+scp -i "ans-pem.pem" /opt/apache-tomcat-9.0.84/server.xml ec2-user@183.23.43.13:/home/ec2-user
+mv server.xml server.xml.j2
+ansible-playbook -i slaves tom.yml -e "tomcat_port=9090"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
